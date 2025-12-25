@@ -20,6 +20,19 @@ TAG_PREFIX="${TAG_PREFIX:-v}"
 RELEASE_TYPE="${RELEASE_TYPE:-patch}"
 CUSTOM_VERSION="${CUSTOM_VERSION:-}"
 
+# Validate release type
+if ! [[ "$RELEASE_TYPE" =~ ^(patch|minor|major|custom)$ ]]; then
+    echo "Error: Invalid release type: $RELEASE_TYPE"
+    echo "Expected: patch | minor | major | custom"
+    exit 1
+fi
+
+# Validate tag prefix (alphanumeric and limited special chars only)
+if ! [[ "$TAG_PREFIX" =~ ^[a-zA-Z0-9._-]*$ ]]; then
+    echo "Error: Invalid tag prefix: $TAG_PREFIX"
+    exit 1
+fi
+
 # Get latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "${TAG_PREFIX}0.0.0")
 echo "Latest tag: $LATEST_TAG"
@@ -36,6 +49,13 @@ if [ "$RELEASE_TYPE" = "custom" ]; then
     fi
     # Remove tag prefix if provided
     NEW_VERSION="${CUSTOM_VERSION#$TAG_PREFIX}"
+    
+    # Validate custom version format
+    if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+        echo "Error: Invalid custom version format: $NEW_VERSION"
+        echo "Expected format: X.Y.Z or X.Y.Z-prerelease"
+        exit 1
+    fi
 else
     # Parse current version
     CURRENT="${LATEST_TAG#$TAG_PREFIX}"

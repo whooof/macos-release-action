@@ -1,0 +1,76 @@
+# Full release workflow with code signing and notarization
+# Requires Apple Developer account and certificates
+
+name: Release with Notarization
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Import signing certificate from secrets
+      - name: Import certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Release
+        uses: whooof/macos-release-action@v1
+        with:
+          release_type: ${{ inputs.release_type }}
+          update_cargo: true
+          update_plist: true
+          create_bundle: true
+          app_name: MyApp
+          binary_path: target/release/myapp
+          plist_path: Info.plist
+          icon_path: assets/icon.icns
+          # Signing
+          sign_bundle: true
+          sign_identity: "Developer ID Application: Your Name (TEAM_ID)"
+          entitlements: entitlements.plist
+          # Notarization
+          notarize: true
+          apple_id: ${{ secrets.APPLE_ID }}
+          team_id: ${{ secrets.APPLE_TEAM_ID }}
+          app_password: ${{ secrets.APPLE_APP_PASSWORD }}
+          # Release
+          create_release: true
+          release_files: |
+            target/release/MyApp.app.zip
+
+      # Cleanup keychain
+      - name: Cleanup
+        if: always()
+        run: security delete-keychain build.keychain || true

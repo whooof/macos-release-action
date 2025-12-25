@@ -1,0 +1,69 @@
+# Release triggered by pushing a tag
+# Push a tag like v1.2.3 to trigger the release
+
+name: Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      # Update version in files to match tag
+      - name: Update Cargo.toml
+        uses: whooof/macos-release-action/actions/update-cargo@v1
+        with:
+          version: ${{ steps.version.outputs.version }}
+
+      - name: Update Info.plist
+        uses: whooof/macos-release-action/actions/update-plist@v1
+        with:
+          version: ${{ steps.version.outputs.version }}
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Create bundle
+        id: bundle
+        uses: whooof/macos-release-action/actions/create-app-bundle@v1
+        with:
+          app_name: MyApp
+          binary_path: target/release/myapp
+          plist_path: Info.plist
+
+      - name: Sign bundle
+        uses: whooof/macos-release-action/actions/sign-and-notarize@v1
+        with:
+          bundle_path: ${{ steps.bundle.outputs.bundle_path }}
+
+      - name: Create zip
+        run: |
+          cd target/release
+          zip -r MyApp-${{ steps.version.outputs.version }}.zip MyApp.app
+
+      - name: Create release
+        uses: whooof/macos-release-action/actions/github-release@v1
+        with:
+          tag: ${{ steps.version.outputs.tag }}
+          name: MyApp ${{ steps.version.outputs.tag }}
+          files: target/release/MyApp-*.zip

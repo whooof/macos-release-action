@@ -172,7 +172,21 @@ Use individual actions for more control:
 
 ## Examples
 
-### Rust Project
+Full workflow examples are available in the [`examples/`](examples/) directory:
+
+| Example | Description |
+|---------|-------------|
+| [rust-basic.yml](examples/rust-basic.yml) | Basic Rust project release |
+| [rust-universal-binary.yml](examples/rust-universal-binary.yml) | Universal binary (arm64 + x86_64) |
+| [swift-xcode.yml](examples/swift-xcode.yml) | Swift/Xcode project |
+| [with-notarization.yml](examples/with-notarization.yml) | Full signing and notarization |
+| [self-hosted-runner.yml](examples/self-hosted-runner.yml) | Self-hosted runner with dynamic selection |
+| [modular-workflow.yml](examples/modular-workflow.yml) | Using individual actions for full control |
+| [tag-triggered.yml](examples/tag-triggered.yml) | Release triggered by pushing a tag |
+
+### Quick Examples
+
+#### Rust Project
 
 ```yaml
 - uses: whooof/macos-release-action@v1
@@ -181,12 +195,12 @@ Use individual actions for more control:
     update_cargo: true
     update_plist: true
     create_bundle: true
-    app_name: KeyChart
-    binary_path: target/release/keychart
+    app_name: MyApp
+    binary_path: target/release/myapp
     icon_path: icon.icns
 ```
 
-### Swift Project
+#### Swift Project
 
 ```yaml
 - uses: whooof/macos-release-action@v1
@@ -198,7 +212,7 @@ Use individual actions for more control:
     plist_path: MyApp/Info.plist
 ```
 
-### Universal Binary
+#### Universal Binary
 
 ```yaml
 - uses: whooof/macos-release-action@v1
@@ -212,7 +226,7 @@ Use individual actions for more control:
     binary_path: target/release/myapp
 ```
 
-### With Notarization
+#### With Notarization
 
 ```yaml
 - uses: whooof/macos-release-action@v1
@@ -226,6 +240,20 @@ Use individual actions for more control:
     apple_id: ${{ secrets.APPLE_ID }}
     team_id: ${{ secrets.TEAM_ID }}
     app_password: ${{ secrets.APP_PASSWORD }}
+```
+
+#### Self-Hosted Runner
+
+```yaml
+jobs:
+  release:
+    # User controls the runner
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - uses: whooof/macos-release-action@v1
+        with:
+          release_type: patch
+          # ...
 ```
 
 ## Available Actions

@@ -21,6 +21,18 @@ ICON_PATH="${ICON_PATH:-}"
 RESOURCES="${RESOURCES:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
 
+# Validate APP_NAME (no path separators or special chars that could escape)
+if [[ "$APP_NAME" =~ [/\\:\*\?\"\<\>\|] ]]; then
+    echo "Error: APP_NAME contains invalid characters: $APP_NAME"
+    exit 1
+fi
+
+# Prevent path traversal in APP_NAME
+if [[ "$APP_NAME" =~ \.\. ]]; then
+    echo "Error: APP_NAME cannot contain '..': $APP_NAME"
+    exit 1
+fi
+
 # Resolve paths
 BINARY_PATH=$(realpath "$BINARY_PATH" 2>/dev/null || echo "$BINARY_PATH")
 

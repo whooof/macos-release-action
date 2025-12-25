@@ -37,32 +37,51 @@ runs:
     - name: Configure git
       shell: bash
       run: |
-        git config user.name "${{ inputs.git_user_name }}"
-        git config user.email "${{ inputs.git_user_email }}"
+        git config user.name "$GIT_USER_NAME"
+        git config user.email "$GIT_USER_EMAIL"
+      env:
+        GIT_USER_NAME: ${{ inputs.git_user_name }}
+        GIT_USER_EMAIL: ${{ inputs.git_user_email }}
 
     - name: Commit changes
       if: inputs.commit_files != ''
       shell: bash
       run: |
-        git add ${{ inputs.commit_files }}
-        COMMIT_MSG="${{ inputs.commit_message }}"
+        # Safely add files (split by whitespace)
+        for file in $COMMIT_FILES; do
+          if [ -f "$file" ]; then
+            git add "$file"
+          else
+            echo "Warning: File not found: $file"
+          fi
+        done
+        COMMIT_MSG="$INPUT_COMMIT_MESSAGE"
         if [ -z "$COMMIT_MSG" ]; then
-          COMMIT_MSG="Release ${{ inputs.tag }}"
+          COMMIT_MSG="Release $INPUT_TAG"
         fi
         git commit -m "$COMMIT_MSG" || echo "Nothing to commit"
+      env:
+        COMMIT_FILES: ${{ inputs.commit_files }}
+        INPUT_COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        INPUT_TAG: ${{ inputs.tag }}
 
     - name: Create tag
       shell: bash
       run: |
-        TAG_MSG="${{ inputs.message }}"
+        TAG_MSG="$INPUT_MESSAGE"
         if [ -z "$TAG_MSG" ]; then
-          TAG_MSG="Release ${{ inputs.tag }}"
+          TAG_MSG="Release $INPUT_TAG"
         fi
-        git tag -a "${{ inputs.tag }}" -m "$TAG_MSG"
+        git tag -a "$INPUT_TAG" -m "$TAG_MSG"
+      env:
+        INPUT_TAG: ${{ inputs.tag }}
+        INPUT_MESSAGE: ${{ inputs.message }}
 
     - name: Push changes and tag
       if: inputs.push == 'true'
       shell: bash
       run: |
         git push origin HEAD
-        git push origin "${{ inputs.tag }}"
+        git push origin "$INPUT_TAG"
+      env:
+        INPUT_TAG: ${{ inputs.tag }}

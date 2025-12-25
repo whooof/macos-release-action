@@ -46,15 +46,18 @@ runs:
       id: prerelease
       shell: bash
       run: |
-        if [ "${{ inputs.prerelease }}" = "auto" ]; then
-          if [[ "${{ inputs.tag }}" == *"-"* ]]; then
+        if [ "$INPUT_PRERELEASE" = "auto" ]; then
+          if [[ "$INPUT_TAG" == *"-"* ]]; then
             echo "value=true" >> $GITHUB_OUTPUT
           else
             echo "value=false" >> $GITHUB_OUTPUT
           fi
         else
-          echo "value=${{ inputs.prerelease }}" >> $GITHUB_OUTPUT
+          echo "value=$INPUT_PRERELEASE" >> $GITHUB_OUTPUT
         fi
+      env:
+        INPUT_TAG: ${{ inputs.tag }}
+        INPUT_PRERELEASE: ${{ inputs.prerelease }}
 
     - name: Create release
       id: release

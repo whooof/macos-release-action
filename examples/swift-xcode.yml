@@ -1,0 +1,57 @@
+# Swift/Xcode project release workflow
+# Updates Xcode project version and creates release
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build
+        run: |
+          xcodebuild -project MyApp.xcodeproj \
+            -scheme MyApp \
+            -configuration Release \
+            -archivePath build/MyApp.xcarchive \
+            archive
+
+      - name: Export
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/MyApp.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Release
+        uses: whooof/macos-release-action@v1
+        with:
+          release_type: ${{ inputs.release_type }}
+          update_xcodeproj: true
+          xcodeproj_path: MyApp.xcodeproj
+          update_plist: true
+          plist_path: MyApp/Info.plist
+          create_bundle: false  # Xcode already creates the bundle
+          create_release: true
+          release_files: |
+            build/export/MyApp.app.zip

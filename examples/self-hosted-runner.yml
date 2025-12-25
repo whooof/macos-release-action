@@ -1,0 +1,55 @@
+# Example using self-hosted runner
+# Useful when you need persistent certificates or specific hardware
+
+name: Release (Self-Hosted)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      runner:
+        description: 'Runner to use'
+        required: true
+        type: choice
+        options:
+          - macos-latest
+          - self-hosted-mac
+        default: macos-latest
+
+jobs:
+  release:
+    # Dynamic runner selection
+    runs-on: ${{ inputs.runner == 'self-hosted-mac' && fromJSON('["self-hosted", "macOS"]') || inputs.runner }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Release
+        uses: whooof/macos-release-action@v1
+        with:
+          release_type: ${{ inputs.release_type }}
+          update_cargo: true
+          update_plist: true
+          create_bundle: true
+          app_name: MyApp
+          binary_path: target/release/myapp
+          plist_path: Info.plist
+          # Self-hosted runner may have certificates pre-installed
+          sign_identity: "Developer ID Application: Your Name (TEAM_ID)"
+          create_release: true

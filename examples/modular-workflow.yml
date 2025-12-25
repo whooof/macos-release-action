@@ -1,0 +1,97 @@
+# Modular workflow using individual actions
+# Gives you full control over each step
+
+name: Release (Modular)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      # Step 1: Calculate version
+      - name: Calculate version
+        id: version
+        uses: whooof/macos-release-action/actions/version-bump@v1
+        with:
+          release_type: ${{ inputs.release_type }}
+
+      - name: Show version
+        run: |
+          echo "New version: ${{ steps.version.outputs.version }}"
+          echo "New tag: ${{ steps.version.outputs.tag }}"
+          echo "Previous: ${{ steps.version.outputs.previous_version }}"
+
+      # Step 2: Update version files
+      - name: Update Cargo.toml
+        uses: whooof/macos-release-action/actions/update-cargo@v1
+        with:
+          version: ${{ steps.version.outputs.version }}
+          cargo_path: Cargo.toml
+
+      - name: Update Info.plist
+        uses: whooof/macos-release-action/actions/update-plist@v1
+        with:
+          version: ${{ steps.version.outputs.version }}
+          plist_path: Info.plist
+
+      # Step 3: Build
+      - name: Build
+        run: cargo build --release
+
+      # Step 4: Create bundle
+      - name: Create app bundle
+        id: bundle
+        uses: whooof/macos-release-action/actions/create-app-bundle@v1
+        with:
+          app_name: MyApp
+          binary_path: target/release/myapp
+          plist_path: Info.plist
+          icon_path: assets/icon.icns
+
+      # Step 5: Sign (optional - add your identity)
+      - name: Sign bundle
+        uses: whooof/macos-release-action/actions/sign-and-notarize@v1
+        with:
+          bundle_path: ${{ steps.bundle.outputs.bundle_path }}
+          # sign_identity: "Developer ID Application: ..."
+
+      # Step 6: Create zip for release
+      - name: Create zip
+        run: |
+          cd "$(dirname "${{ steps.bundle.outputs.bundle_path }}")"
+          zip -r MyApp.app.zip MyApp.app
+
+      # Step 7: Create tag
+      - name: Create tag
+        uses: whooof/macos-release-action/actions/tag-release@v1
+        with:
+          tag: ${{ steps.version.outputs.tag }}
+          files: Cargo.toml Info.plist
+
+      # Step 8: Create GitHub release
+      - name: Create release
+        uses: whooof/macos-release-action/actions/github-release@v1
+        with:
+          tag: ${{ steps.version.outputs.tag }}
+          name: MyApp ${{ steps.version.outputs.tag }}
+          files: target/release/MyApp.app.zip

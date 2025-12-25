@@ -13,6 +13,13 @@ VERSION="${VERSION:?VERSION is required}"
 PLIST_PATH="${PLIST_PATH:-Info.plist}"
 UPDATE_BUILD_NUMBER="${UPDATE_BUILD_NUMBER:-true}"
 
+# Validate version format (semver with optional prerelease)
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+    echo "Error: Invalid version format: $VERSION"
+    echo "Expected format: X.Y.Z or X.Y.Z-prerelease"
+    exit 1
+fi
+
 # Default build number
 if [ -z "${BUILD_NUMBER:-}" ]; then
     if [ -n "${GITHUB_RUN_NUMBER:-}" ]; then
@@ -20,6 +27,12 @@ if [ -z "${BUILD_NUMBER:-}" ]; then
     else
         BUILD_NUMBER=$(date +%Y%m%d%H%M)
     fi
+fi
+
+# Validate build number (should be numeric or simple string)
+if ! [[ "$BUILD_NUMBER" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+    echo "Error: Invalid build number format: $BUILD_NUMBER"
+    exit 1
 fi
 
 if [ ! -f "$PLIST_PATH" ]; then

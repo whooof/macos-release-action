@@ -1,0 +1,47 @@
+# Basic Rust project release workflow
+# Triggers manually with version type selection
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Release
+        uses: whooof/macos-release-action@v1
+        with:
+          release_type: ${{ inputs.release_type }}
+          update_cargo: true
+          update_plist: true
+          create_bundle: true
+          app_name: MyApp
+          binary_path: target/release/myapp
+          plist_path: Info.plist
+          icon_path: assets/icon.icns
+          create_release: true
+          release_files: |
+            target/release/MyApp.app.zip

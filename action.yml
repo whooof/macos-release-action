@@ -266,19 +266,27 @@ runs:
       id: commit_files
       shell: bash
       run: |
-        FILES="${{ inputs.commit_files }}"
-        if [ "${{ inputs.update_cargo }}" = "true" ]; then
-          FILES="$FILES ${{ inputs.cargo_path }}"
+        FILES="$INPUT_COMMIT_FILES"
+        if [ "$UPDATE_CARGO" = "true" ]; then
+          FILES="$FILES $INPUT_CARGO_PATH"
         fi
-        if [ "${{ inputs.update_plist }}" = "true" ]; then
-          FILES="$FILES ${{ inputs.plist_path }}"
+        if [ "$UPDATE_PLIST" = "true" ]; then
+          FILES="$FILES $INPUT_PLIST_PATH"
         fi
-        if [ "${{ inputs.update_xcodeproj }}" = "true" ] && [ -n "${{ inputs.xcodeproj_path }}" ]; then
-          FILES="$FILES ${{ inputs.xcodeproj_path }}"
+        if [ "$UPDATE_XCODEPROJ" = "true" ] && [ -n "$INPUT_XCODEPROJ_PATH" ]; then
+          FILES="$FILES $INPUT_XCODEPROJ_PATH"
         fi
         # Trim whitespace
         FILES=$(echo "$FILES" | xargs)
         echo "files=$FILES" >> $GITHUB_OUTPUT
+      env:
+        INPUT_COMMIT_FILES: ${{ inputs.commit_files }}
+        UPDATE_CARGO: ${{ inputs.update_cargo }}
+        UPDATE_PLIST: ${{ inputs.update_plist }}
+        UPDATE_XCODEPROJ: ${{ inputs.update_xcodeproj }}
+        INPUT_CARGO_PATH: ${{ inputs.cargo_path }}
+        INPUT_PLIST_PATH: ${{ inputs.plist_path }}
+        INPUT_XCODEPROJ_PATH: ${{ inputs.xcodeproj_path }}
 
     # 10. Configure git
     - name: Configure git
@@ -293,30 +301,44 @@ runs:
       if: inputs.create_tag == 'true' && steps.commit_files.outputs.files != ''
       shell: bash
       run: |
-        git add ${{ steps.commit_files.outputs.files }}
-        git commit -m "Release ${{ steps.version.outputs.tag }}" || echo "Nothing to commit"
+        # Safely add files
+        for file in $COMMIT_FILES; do
+          if [ -f "$file" ]; then
+            git add "$file"
+          fi
+        done
+        git commit -m "Release $INPUT_TAG" || echo "Nothing to commit"
+      env:
+        COMMIT_FILES: ${{ steps.commit_files.outputs.files }}
+        INPUT_TAG: ${{ steps.version.outputs.tag }}
 
     # 12. Create and push tag
     - name: Create and push tag
       if: inputs.create_tag == 'true'
       shell: bash
       run: |
-        git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.version }}"
-        if [ "${{ inputs.push_tag }}" = "true" ]; then
+        git tag -a "$INPUT_TAG" -m "Release $INPUT_VERSION"
+        if [ "$PUSH_TAG" = "true" ]; then
           git push origin HEAD
-          git push origin "${{ steps.version.outputs.tag }}"
+          git push origin "$INPUT_TAG"
         fi
+      env:
+        INPUT_TAG: ${{ steps.version.outputs.tag }}
+        INPUT_VERSION: ${{ steps.version.outputs.version }}
+        PUSH_TAG: ${{ inputs.push_tag }}
 
     # 13. Determine prerelease status
     - name: Determine prerelease
       id: prerelease
       shell: bash
       run: |
-        if [[ "${{ steps.version.outputs.tag }}" == *"-"* ]]; then
+        if [[ "$INPUT_TAG" == *"-"* ]]; then
           echo "value=true" >> $GITHUB_OUTPUT
         else
           echo "value=false" >> $GITHUB_OUTPUT
         fi
+      env:
+        INPUT_TAG: ${{ steps.version.outputs.tag }}
 
     # 14. Create GitHub Release
     - name: Create GitHub Release

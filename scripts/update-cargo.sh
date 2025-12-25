@@ -14,6 +14,13 @@ CARGO_PATH="${CARGO_PATH:-Cargo.toml}"
 UPDATE_WORKSPACE="${UPDATE_WORKSPACE:-true}"
 UPDATE_LOCK="${UPDATE_LOCK:-false}"
 
+# Validate version format (semver with optional prerelease)
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+    echo "Error: Invalid version format: $VERSION"
+    echo "Expected format: X.Y.Z or X.Y.Z-prerelease"
+    exit 1
+fi
+
 if [ ! -f "$CARGO_PATH" ]; then
     echo "Error: Cargo.toml not found at: $CARGO_PATH"
     exit 1
