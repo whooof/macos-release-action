@@ -1,0 +1,32 @@
+name: 'Update Info.plist'
+description: 'Update version in Info.plist'
+author: 'whooof'
+
+inputs:
+  version:
+    description: 'New version'
+    required: true
+  plist_path:
+    description: 'Path to Info.plist'
+    required: false
+    default: 'Info.plist'
+  build_number:
+    description: 'Build number (default: GITHUB_RUN_NUMBER)'
+    required: false
+    default: ''
+  update_build_number:
+    description: 'Update CFBundleVersion'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update Info.plist
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/update-plist.sh
+      env:
+        VERSION: ${{ inputs.version }}
+        PLIST_PATH: ${{ inputs.plist_path }}
+        BUILD_NUMBER: ${{ inputs.build_number }}
+        UPDATE_BUILD_NUMBER: ${{ inputs.update_build_number }}

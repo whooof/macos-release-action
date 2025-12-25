@@ -1,0 +1,68 @@
+name: 'Sign and Notarize'
+description: 'Sign and optionally notarize macOS app bundle'
+author: 'whooof'
+
+inputs:
+  bundle_path:
+    description: 'Path to .app bundle'
+    required: true
+  sign:
+    description: 'Sign the bundle'
+    required: false
+    default: 'true'
+  sign_identity:
+    description: 'Signing identity (empty = ad-hoc)'
+    required: false
+    default: ''
+  entitlements:
+    description: 'Path to entitlements.plist'
+    required: false
+    default: ''
+  notarize:
+    description: 'Notarize the bundle'
+    required: false
+    default: 'false'
+  apple_id:
+    description: 'Apple ID for notarization'
+    required: false
+    default: ''
+  team_id:
+    description: 'Team ID for notarization'
+    required: false
+    default: ''
+  app_password:
+    description: 'App-specific password for notarization'
+    required: false
+    default: ''
+
+outputs:
+  signed:
+    description: 'Bundle was signed'
+    value: ${{ steps.sign.outputs.signed }}
+  notarized:
+    description: 'Bundle was notarized'
+    value: ${{ steps.notarize.outputs.notarized }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Sign bundle
+      id: sign
+      if: inputs.sign == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/sign-bundle.sh
+      env:
+        BUNDLE_PATH: ${{ inputs.bundle_path }}
+        IDENTITY: ${{ inputs.sign_identity }}
+        ENTITLEMENTS: ${{ inputs.entitlements }}
+
+    - name: Notarize bundle
+      id: notarize
+      if: inputs.notarize == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/notarize.sh
+      env:
+        BUNDLE_PATH: ${{ inputs.bundle_path }}
+        APPLE_ID: ${{ inputs.apple_id }}
+        TEAM_ID: ${{ inputs.team_id }}
+        APP_PASSWORD: ${{ inputs.app_password }}

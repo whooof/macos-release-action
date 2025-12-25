@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Test artifacts
+test-*.toml
+test-*.plist
+target/
+
+# Editor
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Backup files
+*.bak

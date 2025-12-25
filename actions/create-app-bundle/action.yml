@@ -1,0 +1,68 @@
+name: 'Create App Bundle'
+description: 'Create macOS .app bundle'
+author: 'whooof'
+
+inputs:
+  app_name:
+    description: 'Application name'
+    required: true
+  binary_path:
+    description: 'Path to compiled binary'
+    required: true
+  plist_path:
+    description: 'Path to Info.plist'
+    required: false
+    default: 'Info.plist'
+  icon_path:
+    description: 'Path to .icns icon'
+    required: false
+    default: ''
+  resources:
+    description: 'Additional resources to copy (space-separated paths)'
+    required: false
+    default: ''
+  output_dir:
+    description: 'Output directory'
+    required: false
+    default: ''
+  architecture:
+    description: 'Architecture: arm64 | x86_64 | universal'
+    required: false
+    default: 'arm64'
+  arm64_binary:
+    description: 'Path to arm64 binary (for universal)'
+    required: false
+    default: ''
+  x86_64_binary:
+    description: 'Path to x86_64 binary (for universal)'
+    required: false
+    default: ''
+
+outputs:
+  bundle_path:
+    description: 'Path to created .app bundle'
+    value: ${{ steps.bundle.outputs.bundle_path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create universal binary
+      if: inputs.architecture == 'universal'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/create-universal.sh
+      env:
+        ARM64_BINARY: ${{ inputs.arm64_binary }}
+        X86_64_BINARY: ${{ inputs.x86_64_binary }}
+        OUTPUT_PATH: ${{ inputs.binary_path }}
+
+    - name: Create bundle
+      id: bundle
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/create-bundle.sh
+      env:
+        APP_NAME: ${{ inputs.app_name }}
+        BINARY_PATH: ${{ inputs.binary_path }}
+        PLIST_PATH: ${{ inputs.plist_path }}
+        ICON_PATH: ${{ inputs.icon_path }}
+        RESOURCES: ${{ inputs.resources }}
+        OUTPUT_DIR: ${{ inputs.output_dir }}

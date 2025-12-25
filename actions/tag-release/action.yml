@@ -1,0 +1,68 @@
+name: 'Tag Release'
+description: 'Create and push git tag'
+author: 'whooof'
+
+inputs:
+  tag:
+    description: 'Tag name'
+    required: true
+  message:
+    description: 'Tag message (default: Release {tag})'
+    required: false
+    default: ''
+  push:
+    description: 'Push tag to remote'
+    required: false
+    default: 'true'
+  commit_files:
+    description: 'Files to commit before tagging (space-separated)'
+    required: false
+    default: ''
+  commit_message:
+    description: 'Commit message'
+    required: false
+    default: ''
+  git_user_name:
+    description: 'Git user name'
+    required: false
+    default: 'github-actions[bot]'
+  git_user_email:
+    description: 'Git user email'
+    required: false
+    default: 'github-actions[bot]@users.noreply.github.com'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure git
+      shell: bash
+      run: |
+        git config user.name "${{ inputs.git_user_name }}"
+        git config user.email "${{ inputs.git_user_email }}"
+
+    - name: Commit changes
+      if: inputs.commit_files != ''
+      shell: bash
+      run: |
+        git add ${{ inputs.commit_files }}
+        COMMIT_MSG="${{ inputs.commit_message }}"
+        if [ -z "$COMMIT_MSG" ]; then
+          COMMIT_MSG="Release ${{ inputs.tag }}"
+        fi
+        git commit -m "$COMMIT_MSG" || echo "Nothing to commit"
+
+    - name: Create tag
+      shell: bash
+      run: |
+        TAG_MSG="${{ inputs.message }}"
+        if [ -z "$TAG_MSG" ]; then
+          TAG_MSG="Release ${{ inputs.tag }}"
+        fi
+        git tag -a "${{ inputs.tag }}" -m "$TAG_MSG"
+
+    - name: Push changes and tag
+      if: inputs.push == 'true'
+      shell: bash
+      run: |
+        git push origin HEAD
+        git push origin "${{ inputs.tag }}"

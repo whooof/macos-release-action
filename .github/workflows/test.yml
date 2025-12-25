@@ -1,0 +1,140 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-version-bump:
+    name: Test Version Bump
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test patch bump
+        id: patch
+        uses: ./actions/version-bump
+        with:
+          release_type: patch
+
+      - name: Verify patch bump
+        run: |
+          echo "Version: ${{ steps.patch.outputs.version }}"
+          echo "Tag: ${{ steps.patch.outputs.tag }}"
+          echo "Previous: ${{ steps.patch.outputs.previous_version }}"
+          
+          # Basic validation
+          if [ -z "${{ steps.patch.outputs.version }}" ]; then
+            echo "Error: version is empty"
+            exit 1
+          fi
+
+  test-scripts:
+    name: Test Scripts
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test bump-version.sh
+        run: |
+          export RELEASE_TYPE=patch
+          export TAG_PREFIX=v
+          ./scripts/bump-version.sh
+        env:
+          GITHUB_OUTPUT: /dev/null
+
+      - name: Create test Cargo.toml
+        run: |
+          cat > test-Cargo.toml << 'EOF'
+          [package]
+          name = "test"
+          version = "1.0.0"
+          EOF
+
+      - name: Test update-cargo.sh
+        run: |
+          export VERSION="1.2.3"
+          export CARGO_PATH="test-Cargo.toml"
+          ./scripts/update-cargo.sh
+          grep 'version = "1.2.3"' test-Cargo.toml
+
+      - name: Create test Info.plist
+        run: |
+          cat > test-Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Test update-plist.sh
+        run: |
+          export VERSION="1.2.3"
+          export PLIST_PATH="test-Info.plist"
+          export BUILD_NUMBER="42"
+          ./scripts/update-plist.sh
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" test-Info.plist | grep "1.2.3"
+
+  test-bundle-creation:
+    name: Test Bundle Creation
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create test binary
+        run: |
+          mkdir -p target/release
+          echo '#!/bin/bash' > target/release/testapp
+          echo 'echo "Hello World"' >> target/release/testapp
+          chmod +x target/release/testapp
+
+      - name: Create test Info.plist
+        run: |
+          cat > Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>testapp</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.test.app</string>
+            <key>CFBundleName</key>
+            <string>TestApp</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0.0</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Test create-bundle.sh
+        run: |
+          export APP_NAME="TestApp"
+          export BINARY_PATH="target/release/testapp"
+          export PLIST_PATH="Info.plist"
+          export OUTPUT_DIR="target/release"
+          ./scripts/create-bundle.sh
+          
+          # Verify bundle exists
+          ls -la target/release/TestApp.app/
+          ls -la target/release/TestApp.app/Contents/MacOS/
+
+      - name: Test sign-bundle.sh (ad-hoc)
+        run: |
+          export BUNDLE_PATH="target/release/TestApp.app"
+          ./scripts/sign-bundle.sh
+          
+          # Verify signature
+          codesign --verify target/release/TestApp.app

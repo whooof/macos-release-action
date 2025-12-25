@@ -1,0 +1,32 @@
+name: 'Update Cargo.toml'
+description: 'Update version in Cargo.toml'
+author: 'whooof'
+
+inputs:
+  version:
+    description: 'New version'
+    required: true
+  cargo_path:
+    description: 'Path to Cargo.toml'
+    required: false
+    default: 'Cargo.toml'
+  update_workspace:
+    description: 'Update workspace version if present'
+    required: false
+    default: 'true'
+  update_lock:
+    description: 'Run cargo update to update Cargo.lock'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update Cargo.toml
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/update-cargo.sh
+      env:
+        VERSION: ${{ inputs.version }}
+        CARGO_PATH: ${{ inputs.cargo_path }}
+        UPDATE_WORKSPACE: ${{ inputs.update_workspace }}
+        UPDATE_LOCK: ${{ inputs.update_lock }}

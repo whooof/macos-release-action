@@ -1,0 +1,51 @@
+name: 'Version Bump'
+description: 'Calculate new semantic version based on release type'
+author: 'whooof'
+
+inputs:
+  release_type:
+    description: 'Release type: patch | minor | major | custom'
+    required: true
+    default: 'patch'
+  custom_version:
+    description: 'Custom version (only used if release_type=custom)'
+    required: false
+    default: ''
+  tag_prefix:
+    description: 'Tag prefix'
+    required: false
+    default: 'v'
+  working_directory:
+    description: 'Working directory for git commands'
+    required: false
+    default: '.'
+
+outputs:
+  version:
+    description: 'New version (e.g., 1.2.3)'
+    value: ${{ steps.bump.outputs.version }}
+  tag:
+    description: 'New tag (e.g., v1.2.3)'
+    value: ${{ steps.bump.outputs.tag }}
+  previous_version:
+    description: 'Previous version'
+    value: ${{ steps.bump.outputs.previous_version }}
+  previous_tag:
+    description: 'Previous tag'
+    value: ${{ steps.bump.outputs.previous_tag }}
+  is_prerelease:
+    description: 'Is this a prerelease version'
+    value: ${{ steps.bump.outputs.is_prerelease }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Calculate version
+      id: bump
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: $GITHUB_ACTION_PATH/../../scripts/bump-version.sh
+      env:
+        RELEASE_TYPE: ${{ inputs.release_type }}
+        CUSTOM_VERSION: ${{ inputs.custom_version }}
+        TAG_PREFIX: ${{ inputs.tag_prefix }}

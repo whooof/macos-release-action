@@ -1,0 +1,31 @@
+name: 'Update Xcode Project'
+description: 'Update version in Xcode project'
+author: 'whooof'
+
+inputs:
+  version:
+    description: 'New version'
+    required: true
+  xcodeproj_path:
+    description: 'Path to .xcodeproj'
+    required: true
+  target:
+    description: 'Target name (empty = all targets)'
+    required: false
+    default: ''
+  build_number:
+    description: 'Build number (default: GITHUB_RUN_NUMBER)'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update Xcode project
+      shell: bash
+      run: $GITHUB_ACTION_PATH/../../scripts/update-xcodeproj.sh
+      env:
+        VERSION: ${{ inputs.version }}
+        XCODEPROJ_PATH: ${{ inputs.xcodeproj_path }}
+        TARGET: ${{ inputs.target }}
+        BUILD_NUMBER: ${{ inputs.build_number }}

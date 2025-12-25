@@ -1,0 +1,332 @@
+name: 'macOS Release Action'
+description: 'Complete release workflow for macOS applications - versioning, bundling, signing, and releasing'
+author: 'whooof'
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  # === Version ===
+  release_type:
+    description: 'Release type: patch | minor | major | custom'
+    required: true
+    default: 'patch'
+  custom_version:
+    description: 'Custom version (only for release_type=custom)'
+    required: false
+    default: ''
+  tag_prefix:
+    description: 'Tag prefix'
+    required: false
+    default: 'v'
+
+  # === Cargo (Rust) ===
+  update_cargo:
+    description: 'Update Cargo.toml version'
+    required: false
+    default: 'false'
+  cargo_path:
+    description: 'Path to Cargo.toml'
+    required: false
+    default: 'Cargo.toml'
+
+  # === Info.plist ===
+  update_plist:
+    description: 'Update Info.plist version'
+    required: false
+    default: 'false'
+  plist_path:
+    description: 'Path to Info.plist'
+    required: false
+    default: 'Info.plist'
+
+  # === Xcode ===
+  update_xcodeproj:
+    description: 'Update Xcode project version'
+    required: false
+    default: 'false'
+  xcodeproj_path:
+    description: 'Path to .xcodeproj'
+    required: false
+    default: ''
+
+  # === App Bundle ===
+  create_bundle:
+    description: 'Create macOS .app bundle'
+    required: false
+    default: 'false'
+  app_name:
+    description: 'Application name'
+    required: false
+    default: ''
+  binary_path:
+    description: 'Path to compiled binary'
+    required: false
+    default: ''
+  icon_path:
+    description: 'Path to .icns icon'
+    required: false
+    default: ''
+  resources:
+    description: 'Additional resources to copy'
+    required: false
+    default: ''
+  bundle_output_dir:
+    description: 'Output directory for bundle'
+    required: false
+    default: ''
+  architecture:
+    description: 'Architecture: arm64 | x86_64 | universal'
+    required: false
+    default: 'arm64'
+  arm64_binary:
+    description: 'Path to arm64 binary (for universal)'
+    required: false
+    default: ''
+  x86_64_binary:
+    description: 'Path to x86_64 binary (for universal)'
+    required: false
+    default: ''
+
+  # === Signing ===
+  sign_bundle:
+    description: 'Sign the bundle'
+    required: false
+    default: 'true'
+  sign_identity:
+    description: 'Signing identity (empty = ad-hoc)'
+    required: false
+    default: ''
+  entitlements:
+    description: 'Path to entitlements.plist'
+    required: false
+    default: ''
+
+  # === Notarization ===
+  notarize:
+    description: 'Notarize the bundle'
+    required: false
+    default: 'false'
+  apple_id:
+    description: 'Apple ID for notarization'
+    required: false
+    default: ''
+  team_id:
+    description: 'Team ID for notarization'
+    required: false
+    default: ''
+  app_password:
+    description: 'App-specific password for notarization'
+    required: false
+    default: ''
+
+  # === Git ===
+  create_tag:
+    description: 'Create git tag'
+    required: false
+    default: 'true'
+  push_tag:
+    description: 'Push tag to remote'
+    required: false
+    default: 'true'
+  commit_files:
+    description: 'Additional files to commit (auto-detected based on update_* inputs)'
+    required: false
+    default: ''
+
+  # === GitHub Release ===
+  create_release:
+    description: 'Create GitHub Release'
+    required: false
+    default: 'true'
+  release_files:
+    description: 'Files to attach to release'
+    required: false
+    default: ''
+  release_name:
+    description: 'Release name (default: {app_name} {tag})'
+    required: false
+    default: ''
+  draft:
+    description: 'Create release as draft'
+    required: false
+    default: 'false'
+  generate_notes:
+    description: 'Generate release notes'
+    required: false
+    default: 'true'
+
+outputs:
+  version:
+    description: 'New version'
+    value: ${{ steps.version.outputs.version }}
+  tag:
+    description: 'New tag'
+    value: ${{ steps.version.outputs.tag }}
+  previous_version:
+    description: 'Previous version'
+    value: ${{ steps.version.outputs.previous_version }}
+  bundle_path:
+    description: 'Path to .app bundle'
+    value: ${{ steps.bundle.outputs.bundle_path }}
+  release_url:
+    description: 'GitHub Release URL'
+    value: ${{ steps.release.outputs.release_url }}
+  is_prerelease:
+    description: 'Is prerelease version'
+    value: ${{ steps.version.outputs.is_prerelease }}
+
+runs:
+  using: 'composite'
+  steps:
+    # 1. Calculate version
+    - name: Calculate version
+      id: version
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/bump-version.sh
+      env:
+        RELEASE_TYPE: ${{ inputs.release_type }}
+        CUSTOM_VERSION: ${{ inputs.custom_version }}
+        TAG_PREFIX: ${{ inputs.tag_prefix }}
+
+    # 2. Update Cargo.toml
+    - name: Update Cargo.toml
+      if: inputs.update_cargo == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/update-cargo.sh
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        CARGO_PATH: ${{ inputs.cargo_path }}
+
+    # 3. Update Info.plist
+    - name: Update Info.plist
+      if: inputs.update_plist == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/update-plist.sh
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        PLIST_PATH: ${{ inputs.plist_path }}
+
+    # 4. Update Xcode project
+    - name: Update Xcode project
+      if: inputs.update_xcodeproj == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/update-xcodeproj.sh
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        XCODEPROJ_PATH: ${{ inputs.xcodeproj_path }}
+
+    # 5. Create universal binary (if needed)
+    - name: Create universal binary
+      if: inputs.create_bundle == 'true' && inputs.architecture == 'universal'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/create-universal.sh
+      env:
+        ARM64_BINARY: ${{ inputs.arm64_binary }}
+        X86_64_BINARY: ${{ inputs.x86_64_binary }}
+        OUTPUT_PATH: ${{ inputs.binary_path }}
+
+    # 6. Create app bundle
+    - name: Create app bundle
+      id: bundle
+      if: inputs.create_bundle == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/create-bundle.sh
+      env:
+        APP_NAME: ${{ inputs.app_name }}
+        BINARY_PATH: ${{ inputs.binary_path }}
+        PLIST_PATH: ${{ inputs.plist_path }}
+        ICON_PATH: ${{ inputs.icon_path }}
+        RESOURCES: ${{ inputs.resources }}
+        OUTPUT_DIR: ${{ inputs.bundle_output_dir }}
+
+    # 7. Sign bundle
+    - name: Sign bundle
+      if: inputs.create_bundle == 'true' && inputs.sign_bundle == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/sign-bundle.sh
+      env:
+        BUNDLE_PATH: ${{ steps.bundle.outputs.bundle_path }}
+        IDENTITY: ${{ inputs.sign_identity }}
+        ENTITLEMENTS: ${{ inputs.entitlements }}
+
+    # 8. Notarize bundle
+    - name: Notarize bundle
+      if: inputs.create_bundle == 'true' && inputs.notarize == 'true'
+      shell: bash
+      run: $GITHUB_ACTION_PATH/scripts/notarize.sh
+      env:
+        BUNDLE_PATH: ${{ steps.bundle.outputs.bundle_path }}
+        APPLE_ID: ${{ inputs.apple_id }}
+        TEAM_ID: ${{ inputs.team_id }}
+        APP_PASSWORD: ${{ inputs.app_password }}
+
+    # 9. Determine files to commit
+    - name: Determine commit files
+      id: commit_files
+      shell: bash
+      run: |
+        FILES="${{ inputs.commit_files }}"
+        if [ "${{ inputs.update_cargo }}" = "true" ]; then
+          FILES="$FILES ${{ inputs.cargo_path }}"
+        fi
+        if [ "${{ inputs.update_plist }}" = "true" ]; then
+          FILES="$FILES ${{ inputs.plist_path }}"
+        fi
+        if [ "${{ inputs.update_xcodeproj }}" = "true" ] && [ -n "${{ inputs.xcodeproj_path }}" ]; then
+          FILES="$FILES ${{ inputs.xcodeproj_path }}"
+        fi
+        # Trim whitespace
+        FILES=$(echo "$FILES" | xargs)
+        echo "files=$FILES" >> $GITHUB_OUTPUT
+
+    # 10. Configure git
+    - name: Configure git
+      if: inputs.create_tag == 'true'
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    # 11. Commit version changes
+    - name: Commit version changes
+      if: inputs.create_tag == 'true' && steps.commit_files.outputs.files != ''
+      shell: bash
+      run: |
+        git add ${{ steps.commit_files.outputs.files }}
+        git commit -m "Release ${{ steps.version.outputs.tag }}" || echo "Nothing to commit"
+
+    # 12. Create and push tag
+    - name: Create and push tag
+      if: inputs.create_tag == 'true'
+      shell: bash
+      run: |
+        git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.version }}"
+        if [ "${{ inputs.push_tag }}" = "true" ]; then
+          git push origin HEAD
+          git push origin "${{ steps.version.outputs.tag }}"
+        fi
+
+    # 13. Determine prerelease status
+    - name: Determine prerelease
+      id: prerelease
+      shell: bash
+      run: |
+        if [[ "${{ steps.version.outputs.tag }}" == *"-"* ]]; then
+          echo "value=true" >> $GITHUB_OUTPUT
+        else
+          echo "value=false" >> $GITHUB_OUTPUT
+        fi
+
+    # 14. Create GitHub Release
+    - name: Create GitHub Release
+      id: release
+      if: inputs.create_release == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: ${{ inputs.release_name || format('{0} {1}', inputs.app_name, steps.version.outputs.tag) }}
+        files: ${{ inputs.release_files }}
+        draft: ${{ inputs.draft }}
+        prerelease: ${{ steps.prerelease.outputs.value }}
+        generate_release_notes: ${{ inputs.generate_notes }}
